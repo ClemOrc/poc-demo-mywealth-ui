@@ -6,7 +6,7 @@
 
 ## Overview
 
-This code review was performed after a major refactoring that consolidated the agreement creation and modification flows into a shared wizard component, resulting in a 73% reduction in code duplication (from ~775 lines to ~210 lines).
+This code review was performed after a major refactoring that consolidated the agreement creation and modification flows into a shared wizard component, resulting in a 73% reduction in code duplication (from ~775 lines to ~210 lines) .
 
 ## Issues Found & Fixed
 

@@ -12,10 +12,10 @@ import {
   Typography,
   Box,
   CircularProgress,
-  Button,
 } from '@mui/material';
 import { Agreement, AgreementStatus } from '../../../types';
 import { format } from 'date-fns';
+import AgreementActionsMenu from './AgreementActionsMenu';
 
 interface AgreementTableProps {
   agreements: Agreement[];
@@ -26,6 +26,8 @@ interface AgreementTableProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onRowClick: (agreementId: string) => void;
+  onApprove?: (agreementId: string, clientName: string) => void;
+  onDecline?: (agreementId: string, clientName: string) => void;
 }
 
 const AgreementTable: React.FC<AgreementTableProps> = ({
@@ -37,6 +39,8 @@ const AgreementTable: React.FC<AgreementTableProps> = ({
   onPageChange,
   onPageSizeChange,
   onRowClick,
+  onApprove,
+  onDecline,
 }) => {
   const getStatusColor = (status: AgreementStatus): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     const statusColors: Record<AgreementStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
@@ -72,6 +76,18 @@ const AgreementTable: React.FC<AgreementTableProps> = ({
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     onPageSizeChange(parseInt(event.target.value, 10));
     onPageChange(0);
+  };
+
+  const handleApprove = (agreementId: string, clientName: string) => {
+    if (onApprove) {
+      onApprove(agreementId, clientName);
+    }
+  };
+
+  const handleDecline = (agreementId: string, clientName: string) => {
+    if (onDecline) {
+      onDecline(agreementId, clientName);
+    }
   };
 
   if (loading && agreements.length === 0) {
@@ -144,10 +160,14 @@ const AgreementTable: React.FC<AgreementTableProps> = ({
                 <TableCell sx={{ fontSize: '0.875rem' }}>{agreement.createdBy || 'N/A'}</TableCell>
                 <TableCell sx={{ fontSize: '0.875rem' }}>{agreement.modifiedBy || 'N/A'}</TableCell>
                 <TableCell sx={{ fontSize: '0.875rem' }}>{agreement.clientName || 'N/A'}</TableCell>
-                <TableCell>
-                  <Button size="small" sx={{ textTransform: 'none', minWidth: 'auto', p: 0.5 }}>
-                    •••
-                  </Button>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <AgreementActionsMenu
+                    agreementId={agreement.agreementNumber}
+                    agreementStatus={agreement.status as AgreementStatus}
+                    clientName={agreement.clientName || 'N/A'}
+                    onApprove={handleApprove}
+                    onDecline={handleDecline}
+                  />
                 </TableCell>
               </TableRow>
             ))}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import {
   Box,
   Button,
@@ -7,14 +7,30 @@ import {
   Typography,
   Tabs,
   Tab,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { GET_AGREEMENTS, GET_DASHBOARD_STATS } from '@graphql/queries';
+import { APPROVE_AGREEMENT, DECLINE_AGREEMENT } from './mutations';
 import { useAppContext } from '@contexts/AppContext';
 import { useAppNavigation } from '../../hooks/useAppNavigation';
 import { COLORS, DEFAULT_PAGE_SIZE } from '../../constants';
 import AgreementTable from './components/AgreementTable';
 import AgreementFilters from './components/AgreementFilters';
+import ApprovalConfirmationDialog from './components/ApprovalConfirmationDialog';
+import DeclineConfirmationDialog from './components/DeclineConfirmationDialog';
 import { AgreementStatus } from '../../types';
+
+interface ToastState {
+  open: boolean;
+  message: string;
+  severity: 'success' | 'error';
+}
+
+interface DialogState {
+  agreementId: string;
+  clientName: string;
+}
 
 const Dashboard: React.FC = () => {
   const nav = useAppNavigation();
@@ -22,13 +38,17 @@ const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [toast, setToast] = useState<ToastState>({ open: false, message: '', severity: 'success' });
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+  const [selectedAgreement, setSelectedAgreement] = useState<DialogState | null>(null);
 
   // Initialize filters based on the default tab (Pending)
   React.useEffect(() => {
     setFilters({ ...filters, status: [AgreementStatus.PENDING_APPROVAL] });
   }, []); // Only run once on mount
 
-  const { data: statsData, loading: statsLoading } = useQuery(GET_DASHBOARD_STATS, {
+  const { data: statsData, loading: statsLoading, refetch: refetchStats } = useQuery(GET_DASHBOARD_STATS, {
     fetchPolicy: 'network-only',
   });
 
@@ -69,7 +89,6 @@ const Dashboard: React.FC = () => {
     import('../../mocks/mockStore').then(({ getMockAgreements }) => {
       const mockData = getMockAgreements();
       if (mockData) {
-        console.log('✅ Got raw mock data from store:', mockData);
         setRawAgreementsData(mockData);
       }
     });
@@ -79,6 +98,49 @@ const Dashboard: React.FC = () => {
   React.useEffect(() => {
     refetch();
   }, []);
+
+  // GraphQL Mutations
+  const [approveAgreementMutation, { loading: approveLoading }] = useMutation(APPROVE_AGREEMENT, {
+    onCompleted: (data) => {
+      setToast({
+        open: true,
+        message: `Agreement ${selectedAgreement?.agreementId} approved successfully.`,
+        severity: 'success',
+      });
+      setApproveDialogOpen(false);
+      setSelectedAgreement(null);
+      refetch();
+      refetchStats();
+    },
+    onError: (error) => {
+      setToast({
+        open: true,
+        message: `Failed to approve agreement: ${error.message}`,
+        severity: 'error',
+      });
+    },
+  });
+
+  const [declineAgreementMutation, { loading: declineLoading }] = useMutation(DECLINE_AGREEMENT, {
+    onCompleted: (data) => {
+      setToast({
+        open: true,
+        message: `Agreement ${selectedAgreement?.agreementId} declined successfully.`,
+        severity: 'success',
+      });
+      setDeclineDialogOpen(false);
+      setSelectedAgreement(null);
+      refetch();
+      refetchStats();
+    },
+    onError: (error) => {
+      setToast({
+        open: true,
+        message: `Failed to decline agreement: ${error.message}`,
+        severity: 'error',
+      });
+    },
+  });
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -102,6 +164,41 @@ const Dashboard: React.FC = () => {
 
   const handleRowClick = (agreementId: string) => {
     nav.goToAgreementDetails(agreementId);
+  };
+
+  const handleApproveClick = (agreementId: string, clientName: string) => {
+    setSelectedAgreement({ agreementId, clientName });
+    setApproveDialogOpen(true);
+  };
+
+  const handleDeclineClick = (agreementId: string, clientName: string) => {
+    setSelectedAgreement({ agreementId, clientName });
+    setDeclineDialogOpen(true);
+  };
+
+  const handleApproveConfirm = () => {
+    if (selectedAgreement) {
+      approveAgreementMutation({
+        variables: {
+          agreementId: selectedAgreement.agreementId,
+        },
+      });
+    }
+  };
+
+  const handleDeclineConfirm = (reason?: string) => {
+    if (selectedAgreement) {
+      declineAgreementMutation({
+        variables: {
+          agreementId: selectedAgreement.agreementId,
+          reason,
+        },
+      });
+    }
+  };
+
+  const handleCloseToast = () => {
+    setToast({ ...toast, open: false });
   };
 
   // Use raw mock data if available, otherwise fall back to Apollo data
@@ -200,9 +297,53 @@ const Dashboard: React.FC = () => {
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
             onRowClick={handleRowClick}
+            onApprove={handleApproveClick}
+            onDecline={handleDeclineClick}
           />
         </Box>
       </Card>
+
+      {/* Approval Confirmation Dialog */}
+      {selectedAgreement && (
+        <ApprovalConfirmationDialog
+          open={approveDialogOpen}
+          agreementId={selectedAgreement.agreementId}
+          clientName={selectedAgreement.clientName}
+          loading={approveLoading}
+          onConfirm={handleApproveConfirm}
+          onCancel={() => {
+            setApproveDialogOpen(false);
+            setSelectedAgreement(null);
+          }}
+        />
+      )}
+
+      {/* Decline Confirmation Dialog */}
+      {selectedAgreement && (
+        <DeclineConfirmationDialog
+          open={declineDialogOpen}
+          agreementId={selectedAgreement.agreementId}
+          clientName={selectedAgreement.clientName}
+          loading={declineLoading}
+          onConfirm={handleDeclineConfirm}
+          onCancel={() => {
+            setDeclineDialogOpen(false);
+            setSelectedAgreement(null);
+          }}
+        />
+      )}
+
+      {/* Toast Notification */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={6000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseToast} severity={toast.severity} sx={{ width: '100%' }}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

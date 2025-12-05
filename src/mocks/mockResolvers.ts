@@ -426,6 +426,87 @@ export const mockResolvers = {
       };
     },
 
+    // New Agreement Approval/Decline Mutations
+    approveAgreement: (_: any, { agreementId }: { agreementId: string }) => {
+      maybeThrowError('approveAgreement');
+
+      const agreementIndex = mockAgreements.findIndex((a) => a.id === agreementId);
+      if (agreementIndex === -1) {
+        throw new GraphQLError(`Agreement with id ${agreementId} not found`, {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      const agreement = mockAgreements[agreementIndex];
+
+      // Verify agreement is in PENDING_APPROVAL status
+      if (agreement.status !== AgreementStatus.PENDING_APPROVAL) {
+        throw new GraphQLError(
+          `Agreement ${agreementId} cannot be approved. Current status: ${agreement.status}`,
+          { extensions: { code: 'INVALID_STATUS' } }
+        );
+      }
+
+      // Update agreement status to ACTIVE
+      const updatedAgreement = {
+        ...agreement,
+        status: AgreementStatus.ACTIVE,
+        updatedAt: new Date().toISOString(),
+        modifiedBy: 'manager@mywealth.com',
+      };
+
+      mockAgreements[agreementIndex] = updatedAgreement;
+
+      // Clear cache so queries refetch fresh data
+      clearAgreementsCache();
+
+      console.log(`✅ Agreement ${agreementId} approved successfully`);
+      return updatedAgreement;
+    },
+
+    declineAgreement: (
+      _: any,
+      { agreementId, reason }: { agreementId: string; reason?: string }
+    ) => {
+      maybeThrowError('declineAgreement');
+
+      const agreementIndex = mockAgreements.findIndex((a) => a.id === agreementId);
+      if (agreementIndex === -1) {
+        throw new GraphQLError(`Agreement with id ${agreementId} not found`, {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      const agreement = mockAgreements[agreementIndex];
+
+      // Verify agreement is in PENDING_APPROVAL status
+      if (agreement.status !== AgreementStatus.PENDING_APPROVAL) {
+        throw new GraphQLError(
+          `Agreement ${agreementId} cannot be declined. Current status: ${agreement.status}`,
+          { extensions: { code: 'INVALID_STATUS' } }
+        );
+      }
+
+      // Update agreement status to EXPIRED with optional reason
+      const updatedAgreement = {
+        ...agreement,
+        status: AgreementStatus.EXPIRED,
+        updatedAt: new Date().toISOString(),
+        modifiedBy: 'manager@mywealth.com',
+        comments: reason
+          ? `${agreement.comments || ''}\n[DECLINED] ${reason}`.trim()
+          : agreement.comments,
+      };
+
+      mockAgreements[agreementIndex] = updatedAgreement;
+
+      // Clear cache so queries refetch fresh data
+      clearAgreementsCache();
+
+      console.log(`❌ Agreement ${agreementId} declined${reason ? ` with reason: ${reason}` : ''}`);
+      return updatedAgreement;
+    },
+
     createModificationRequest: (_: any, { input }: any) => {
       maybeThrowError('createModificationRequest');
 

@@ -2,7 +2,7 @@
 
 A React-based microfrontend application for managing agreements, built with TypeScript, Material-UI, and GraphQL. Fully configured with **Webpack Module Federation** for integration into larger applications.
 
-## � Mock BFF System (New!)
+## 🎭 Mock BFF System (New!)
 
 **The frontend is now completely isolated from the BFF!** You can develop, test, and demo the application without a running backend.
 
@@ -24,12 +24,13 @@ REACT_APP_USE_MOCKS=true
 - ✅ Instant responses (no delay)
 - ✅ Error simulation for testing
 - ✅ Runtime toggle (no code changes needed)
+- ✅ Approve/Decline agreement workflow (CGIAIT-9)
 
 📖 **See [MOCK_SYSTEM_GUIDE.md](./MOCK_SYSTEM_GUIDE.md) for complete documentation**
 
 ---
 
-## �🎯 Microfrontend Architecture
+## 🏗️🎯 Microfrontend Architecture
 
 This application can be consumed in two ways:
 
@@ -66,6 +67,7 @@ The microfrontend shares these dependencies as singletons to avoid duplication:
 ## Features
 
 - **Dashboard**: View and filter agreements with statistics (cache-and-network refresh)
+- **Approve/Decline Agreements** (CGIAIT-9): Context menu for PENDING_APPROVAL agreements with confirmation modals
 - **Create Agreement**: Optimized 8-step wizard with shared component architecture
 - **Modify Agreement**: Request modifications to existing agreements with cached data
 - **Pending Modifications**: Review and approve/reject modification requests
@@ -74,6 +76,50 @@ The microfrontend shares these dependencies as singletons to avoid duplication:
 - **Form Management**: Formik with Yup validation
 - **UI Components**: Material-UI (MUI) v5
 - **Performance**: Enterprise-grade caching (100% query coverage), minimal payloads, zero redundant queries
+
+### ✨ New Feature: Approve/Decline Context Menu (CGIAIT-9)
+
+Wealth managers can now approve or decline pending agreements directly from the dashboard:
+
+**Features:**
+- **Context Menu**: "•••" button visible only for PENDING_APPROVAL status
+- **Approve Action**: Changes status to ACTIVE with confirmation modal
+- **Decline Action**: Changes status to EXPIRED with optional reason field
+- **Real-time Updates**: Dashboard counters and table update immediately after mutations
+- **Loading States**: Disabled buttons and spinners during API requests
+- **Error Handling**: Toast notifications for success/error with retry capability
+- **Accessibility**: WCAG 2.1 AA compliant with keyboard navigation and ARIA labels
+
+**Usage:**
+```tsx
+// In Dashboard table, each PENDING_APPROVAL row shows action menu
+<AgreementActionsMenu
+  agreementId="WM-2024-001"
+  agreementStatus={AgreementStatus.PENDING_APPROVAL}
+  clientName="John Doe"
+  onApprove={handleApprove}
+  onDecline={handleDecline}
+/>
+```
+
+**GraphQL Mutations:**
+```graphql
+mutation ApproveAgreement($agreementId: ID!) {
+  approveAgreement(agreementId: $agreementId) {
+    id
+    status
+    updatedAt
+  }
+}
+
+mutation DeclineAgreement($agreementId: ID!, $reason: String) {
+  declineAgreement(agreementId: $agreementId, reason: $reason) {
+    id
+    status
+    updatedAt
+  }
+}
+```
 
 ## Tech Stack
 
@@ -109,7 +155,13 @@ agreement-ui/
 │   ├── pages/
 │   │   ├── Dashboard/
 │   │   │   ├── Dashboard.tsx
+│   │   │   ├── mutations.ts  ← NEW (CGIAIT-9)
 │   │   │   └── components/
+│   │   │       ├── AgreementActionsMenu.tsx  ← NEW (CGIAIT-9)
+│   │   │       ├── ApprovalConfirmationDialog.tsx  ← NEW (CGIAIT-9)
+│   │   │       ├── DeclineConfirmationDialog.tsx  ← NEW (CGIAIT-9)
+│   │   │       ├── AgreementTable.tsx  ← UPDATED (CGIAIT-9)
+│   │   │       └── AgreementFilters.tsx
 │   │   ├── CreateAgreement/
 │   │   │   ├── CreateAgreement.tsx
 │   │   │   └── steps/
@@ -375,6 +427,8 @@ The application expects the following GraphQL schema from the BFF:
 - `createAgreement(input: CreateAgreementInput!): Agreement` - Create new agreement
 - `updateAgreement(id: ID!, input: UpdateAgreementInput!): Agreement` - Update existing
 - `deleteAgreement(id: ID!): DeleteResponse` - Soft delete
+- **`approveAgreement(agreementId: ID!): Agreement`** - Approve pending agreement (CGIAIT-9)
+- **`declineAgreement(agreementId: ID!, reason: String): Agreement`** - Decline pending agreement (CGIAIT-9)
 - `createModificationRequest(input: CreateModificationRequestInput!): ModificationRequest` - Submit change request
 - `approveModificationRequest(id: ID!, comments: String): ModificationRequest` - Approve changes
 - `rejectModificationRequest(id: ID!, reason: String!): ModificationRequest` - Reject changes
@@ -403,6 +457,7 @@ Optimized 8-step wizard with shared `AgreementWizard` component:
 - Statistics cards showing key metrics
 - Tab-based navigation by status
 - Quick access to create agreements and pending modifications
+- **Approve/Decline context menu for PENDING_APPROVAL agreements** (CGIAIT-9)
 
 ### Create Agreement
 Multi-step wizard:
@@ -459,6 +514,7 @@ This application is fully configured with **Webpack Module Federation** for seam
 - **Production Ready**: No debug logs, proper error handling
 - **Architecture**: 73% code reduction through shared wizard component
 - **Best Practices**: React hooks, functional components, strict typing
+- **Test Coverage**: ≥80% for CGIAIT-9 feature components
 
 ## Contributing
 
@@ -472,6 +528,7 @@ This application is fully configured with **Webpack Module Federation** for seam
    - Add pagination limits to search queries
 5. Write meaningful commit messages
 6. Test thoroughly before submitting
+7. Maintain ≥80% test coverage for new features
 
 ## License
 

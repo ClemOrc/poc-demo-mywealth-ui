@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
 import {
   Box,
   Button,
@@ -7,14 +7,18 @@ import {
   Typography,
   Tabs,
   Tab,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { GET_AGREEMENTS, GET_DASHBOARD_STATS } from '@graphql/queries';
+import { APPROVE_AGREEMENT, DECLINE_AGREEMENT } from '@graphql/mutations';
 import { useAppContext } from '@contexts/AppContext';
 import { useAppNavigation } from '../../hooks/useAppNavigation';
 import { COLORS, DEFAULT_PAGE_SIZE } from '../../constants';
 import AgreementTable from './components/AgreementTable';
 import AgreementFilters from './components/AgreementFilters';
-import { AgreementStatus } from '../../types';
+import ApprovalConfirmationDialog from './components/ApprovalConfirmationDialog';
+import { Agreement, AgreementStatus } from '../../types';
 
 const Dashboard: React.FC = () => {
   const nav = useAppNavigation();
@@ -22,6 +26,22 @@ const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogType, setDialogType] = useState<'approve' | 'decline'>('approve');
+  const [selectedAgreement, setSelectedAgreement] = useState<Agreement | null>(null);
+  
+  // Notification state
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   // Initialize filters based on the default tab (Pending)
   React.useEffect(() => {
@@ -60,6 +80,49 @@ const Dashboard: React.FC = () => {
       notifyOnNetworkStatusChange: true,
     }
   );
+
+  // Mutations
+  const [approveAgreement, { loading: approveLoading }] = useMutation(APPROVE_AGREEMENT, {
+    onCompleted: (data) => {
+      const agreementId = data.approveAgreement.agreementNumber;
+      setNotification({
+        open: true,
+        message: `Agreement ${agreementId} approved successfully`,
+        severity: 'success',
+      });
+      refetch();
+      setDialogOpen(false);
+      setSelectedAgreement(null);
+    },
+    onError: (error) => {
+      setNotification({
+        open: true,
+        message: `Error approving agreement: ${error.message}`,
+        severity: 'error',
+      });
+    },
+  });
+
+  const [declineAgreement, { loading: declineLoading }] = useMutation(DECLINE_AGREEMENT, {
+    onCompleted: (data) => {
+      const agreementId = data.declineAgreement.agreementNumber;
+      setNotification({
+        open: true,
+        message: `Agreement ${agreementId} declined successfully`,
+        severity: 'success',
+      });
+      refetch();
+      setDialogOpen(false);
+      setSelectedAgreement(null);
+    },
+    onError: (error) => {
+      setNotification({
+        open: true,
+        message: `Error declining agreement: ${error.message}`,
+        severity: 'error',
+      });
+    },
+  });
 
   // WORKAROUND: Get raw mock data from store (bypasses Apollo's field filtering)
   const [rawAgreementsData, setRawAgreementsData] = React.useState<any>(null);
@@ -102,6 +165,57 @@ const Dashboard: React.FC = () => {
 
   const handleRowClick = (agreementId: string) => {
     nav.goToAgreementDetails(agreementId);
+  };
+
+  const handleApprove = (agreement: Agreement) => {
+    setSelectedAgreement(agreement);
+    setDialogType('approve');
+    setDialogOpen(true);
+  };
+
+  const handleDecline = (agreement: Agreement) => {
+    setSelectedAgreement(agreement);
+    setDialogType('decline');
+    setDialogOpen(true);
+  };
+
+  const handleConfirmApproval = async (reason?: string) => {
+    if (!selectedAgreement) return;
+
+    await approveAgreement({
+      variables: {
+        id: selectedAgreement.id,
+        comments: reason,
+      },
+    });
+  };
+
+  const handleConfirmDecline = async (reason?: string) => {
+    if (!selectedAgreement) return;
+
+    await declineAgreement({
+      variables: {
+        id: selectedAgreement.id,
+        reason: reason,
+      },
+    });
+  };
+
+  const handleDialogConfirm = (reason?: string) => {
+    if (dialogType === 'approve') {
+      handleConfirmApproval(reason);
+    } else {
+      handleConfirmDecline(reason);
+    }
+  };
+
+  const handleDialogCancel = () => {
+    setDialogOpen(false);
+    setSelectedAgreement(null);
+  };
+
+  const handleCloseNotification = () => {
+    setNotification({ ...notification, open: false });
   };
 
   // Use raw mock data if available, otherwise fall back to Apollo data
@@ -200,9 +314,37 @@ const Dashboard: React.FC = () => {
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
             onRowClick={handleRowClick}
+            onApprove={handleApprove}
+            onDecline={handleDecline}
           />
         </Box>
       </Card>
+
+      {/* Approval/Decline Confirmation Dialog */}
+      <ApprovalConfirmationDialog
+        open={dialogOpen}
+        type={dialogType}
+        agreement={selectedAgreement}
+        loading={approveLoading || declineLoading}
+        onConfirm={handleDialogConfirm}
+        onCancel={handleDialogCancel}
+      />
+
+      {/* Notification Snackbar */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

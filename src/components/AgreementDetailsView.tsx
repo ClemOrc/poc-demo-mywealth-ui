@@ -19,6 +19,7 @@ import { Agreement } from '../types';
 import { format } from 'date-fns';
 import { GET_CLIENT, GET_HOUSEHOLD_MEMBERS, GET_ASSET_ALLOCATION_POLICIES, GET_PROGRAM_FEES, GET_CLIENT_ACCOUNTS } from '@graphql/queries';
 import { feeSchedules } from '../mocks/mockData';
+import { COLORS } from '../constants';
 
 interface AgreementDetailsViewProps {
   agreement: Agreement;
@@ -205,7 +206,7 @@ const AgreementDetailsView: React.FC<AgreementDetailsViewProps> = ({ agreement }
                 <Typography variant="body1">
                   {client.residency || 'N/A'}
                   {client.language && (
-                    <Box component="span" sx={{ ml: 1, px: 1, py: 0.5, bgcolor: '#e3f2fd', borderRadius: 1, fontSize: '0.75rem', fontWeight: 600 }}>
+                    <Box component="span" sx={{ ml: 1, px: 1, py: 0.5, bgcolor: COLORS.BACKGROUND_LIGHT, borderRadius: 1, fontSize: '0.75rem', fontWeight: 600 }}>
                       {client.language.toUpperCase()}
                     </Box>
                   )}
@@ -301,7 +302,7 @@ const AgreementDetailsView: React.FC<AgreementDetailsViewProps> = ({ agreement }
             {householdMembers
               .filter((member: any) => agreement.selectedHouseholdMembers?.includes(member.id))
               .map((member: any) => (
-              <Box key={member.id} sx={{ mb: 3, p: 2, bgcolor: '#f5f9ff', borderRadius: 1 }}>
+              <Box key={member.id} sx={{ mb: 3, p: 2, bgcolor: COLORS.BACKGROUND_LIGHT, borderRadius: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <Checkbox checked={true} disabled />
                   <Box sx={{ ml: 2, flex: 1 }}>
@@ -319,7 +320,7 @@ const AgreementDetailsView: React.FC<AgreementDetailsViewProps> = ({ agreement }
                       <Box key={acc.id} sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                         <Checkbox checked={true} disabled size="small" />
                         <Typography variant="body2" sx={{ ml: 1, flex: 1 }}>
-                          <strong>{acc.accountType}</strong> {acc.accountNumber} <span style={{ color: '#666' }}>- {acc.currency}</span>
+                          <strong>{acc.accountType}</strong> {acc.accountNumber} <span style={{ color: COLORS.TEXT_SECONDARY }}>- {acc.currency}</span>
                         </Typography>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
                           $ {acc.balance?.toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -429,7 +430,7 @@ const AgreementDetailsView: React.FC<AgreementDetailsViewProps> = ({ agreement }
           </Grid>
 
           {(agreement.currentFeeAccount === 'yes' || programFees.otherFeeAccount) && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+            <Box sx={{ mt: 2, p: 2, bgcolor: COLORS.BACKGROUND_LIGHT, borderRadius: 1 }}>
               <Typography variant="caption" color="text.secondary">Other Fee Based Account</Typography>
               <Typography variant="body1" sx={{ fontWeight: 600 }}>
                 {agreement.feeType || programFees.otherFeeAccount || 'myWealth - Advisory'}
@@ -467,7 +468,7 @@ const AgreementDetailsView: React.FC<AgreementDetailsViewProps> = ({ agreement }
             Notes
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          <Box sx={{ p: 2, bgcolor: '#f5f9ff', borderRadius: 1 }}>
+          <Box sx={{ p: 2, bgcolor: COLORS.BACKGROUND_LIGHT, borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               {formatDate(agreement.updatedAt)} - {agreement.modifiedBy || agreement.createdBy}
             </Typography>

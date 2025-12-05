@@ -2,6 +2,7 @@ import React, { ReactNode } from 'react';
 import { Box, AppBar, Toolbar, Typography, IconButton, Badge, Container } from '@mui/material';
 import { Notifications as NotificationsIcon, Menu as MenuIcon } from '@mui/icons-material';
 import { useAppContext } from '@contexts/AppContext';
+import { COLORS } from '@/constants';
 
 interface LayoutProps {
   children: ReactNode;
@@ -47,10 +48,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           py: 3,
           px: 2,
           mt: 'auto',
-          backgroundColor: (theme) =>
-            theme.palette.mode === 'light'
-              ? theme.palette.grey[200]
-              : theme.palette.grey[800],
+          backgroundColor: COLORS.BACKGROUND_LIGHT,
+          borderTop: `1px solid ${COLORS.BORDER_GRAY}`,
         }}
       >
         <Container maxWidth="xl">

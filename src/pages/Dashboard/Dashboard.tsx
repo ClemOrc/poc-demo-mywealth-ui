@@ -7,6 +7,8 @@ import {
   Typography,
   Tabs,
   Tab,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { GET_AGREEMENTS, GET_DASHBOARD_STATS } from '@graphql/queries';
 import { useAppContext } from '@contexts/AppContext';
@@ -22,6 +24,15 @@ const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info';
+  }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   // Initialize filters based on the default tab (Pending)
   React.useEffect(() => {
@@ -102,6 +113,43 @@ const Dashboard: React.FC = () => {
 
   const handleRowClick = (agreementId: string) => {
     nav.goToAgreementDetails(agreementId);
+  };
+
+  const handleStatusChange = async (agreementId: string, newStatus: AgreementStatus) => {
+    try {
+      // Import mockData to update the agreement status
+      const { mockAgreements } = await import('../../mocks/mockData');
+      const agreement = mockAgreements.find((a: any) => a.id === agreementId);
+      
+      if (agreement) {
+        // Update the status in the mock data
+        agreement.status = newStatus;
+        
+        // Show success message
+        const statusText = newStatus === AgreementStatus.ACTIVE ? 'accepté' : 'refusé';
+        setSnackbar({
+          open: true,
+          message: `L'accord ${agreement.agreementNumber} a été ${statusText} avec succès.`,
+          severity: 'success',
+        });
+        
+        // Refetch the data to reflect the changes
+        await refetch();
+      } else {
+        throw new Error('Agreement not found');
+      }
+    } catch (error) {
+      console.error('Error updating agreement status:', error);
+      setSnackbar({
+        open: true,
+        message: 'Une erreur est survenue lors de la mise à jour du statut.',
+        severity: 'error',
+      });
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
   };
 
   // Use raw mock data if available, otherwise fall back to Apollo data
@@ -200,9 +248,22 @@ const Dashboard: React.FC = () => {
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
             onRowClick={handleRowClick}
+            onStatusChange={handleStatusChange}
           />
         </Box>
       </Card>
+
+      {/* Success/Error Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

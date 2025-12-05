@@ -426,6 +426,90 @@ export const mockResolvers = {
       };
     },
 
+    approveAgreement: (_: any, { agreementId }: { agreementId: string }) => {
+      maybeThrowError('approveAgreement');
+
+      const agreementIndex = mockAgreements.findIndex(
+        (a) => a.agreementNumber === agreementId || a.id === agreementId
+      );
+      if (agreementIndex === -1) {
+        throw new GraphQLError(`Agreement with id ${agreementId} not found`, {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      const agreement = mockAgreements[agreementIndex];
+      if (agreement.status !== AgreementStatus.PENDING_APPROVAL) {
+        throw new GraphQLError(
+          `Agreement ${agreementId} is not in PENDING_APPROVAL status`,
+          { extensions: { code: 'INVALID_STATUS' } }
+        );
+      }
+
+      const updatedAgreement = {
+        ...agreement,
+        status: AgreementStatus.ACTIVE,
+        updatedAt: new Date().toISOString(),
+        modifiedBy: 'manager@mywealth.com',
+      };
+
+      mockAgreements[agreementIndex] = updatedAgreement;
+      
+      // Clear cache so queries refetch fresh data
+      clearAgreementsCache();
+
+      return {
+        id: updatedAgreement.id,
+        status: updatedAgreement.status,
+        updatedAt: updatedAgreement.updatedAt,
+      };
+    },
+
+    declineAgreement: (
+      _: any,
+      { agreementId, reason }: { agreementId: string; reason?: string }
+    ) => {
+      maybeThrowError('declineAgreement');
+
+      const agreementIndex = mockAgreements.findIndex(
+        (a) => a.agreementNumber === agreementId || a.id === agreementId
+      );
+      if (agreementIndex === -1) {
+        throw new GraphQLError(`Agreement with id ${agreementId} not found`, {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      const agreement = mockAgreements[agreementIndex];
+      if (agreement.status !== AgreementStatus.PENDING_APPROVAL) {
+        throw new GraphQLError(
+          `Agreement ${agreementId} is not in PENDING_APPROVAL status`,
+          { extensions: { code: 'INVALID_STATUS' } }
+        );
+      }
+
+      const updatedAgreement = {
+        ...agreement,
+        status: AgreementStatus.EXPIRED,
+        updatedAt: new Date().toISOString(),
+        modifiedBy: 'manager@mywealth.com',
+        comments: reason
+          ? `${agreement.comments || ''}\n[DECLINED] ${reason}`.trim()
+          : agreement.comments,
+      };
+
+      mockAgreements[agreementIndex] = updatedAgreement;
+      
+      // Clear cache so queries refetch fresh data
+      clearAgreementsCache();
+
+      return {
+        id: updatedAgreement.id,
+        status: updatedAgreement.status,
+        updatedAt: updatedAgreement.updatedAt,
+      };
+    },
+
     createModificationRequest: (_: any, { input }: any) => {
       maybeThrowError('createModificationRequest');
 

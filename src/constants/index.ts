@@ -49,17 +49,33 @@ export const DASHBOARD_TABS = {
   ALL: { value: 'ALL', label: 'All' },
 } as const;
 
-// Theme Colors (reference these instead of hardcoding)
+// Theme Colors - BNC Brand Colors (Red, Grey, White)
 export const COLORS = {
-  PRIMARY: '#1976d2',
-  BACKGROUND_GRAY: '#f5f7fa',
-  BACKGROUND_LIGHT: '#f5f9ff',
-  BORDER_GRAY: '#e0e0e0',
-  TEXT_SECONDARY: '#666',
-  ERROR: '#d32f2f',
-  SUCCESS: '#2e7d32',
-  WARNING: '#ed6c02',
-  WHITE: '#ffffff',
+  // BNC Primary Red
+  PRIMARY: '#E31837',
+  PRIMARY_LIGHT: '#FF4458',
+  PRIMARY_DARK: '#B31229',
+  
+  // Grey tones for backgrounds and UI elements
+  BACKGROUND_GRAY: '#F5F5F5',
+  BACKGROUND_LIGHT: '#FAFAFA',
+  BACKGROUND_DARK: '#E0E0E0',
+  BORDER_GRAY: '#CCCCCC',
+  
+  // Text colors using grey tones
+  TEXT_PRIMARY: '#333333',
+  TEXT_SECONDARY: '#666666',
+  TEXT_DISABLED: '#999999',
+  
+  // Status colors (keeping semantic colors)
+  ERROR: '#D32F2F',
+  SUCCESS: '#2E7D32',
+  WARNING: '#ED6C02',
+  INFO: '#0288D1',
+  
+  // Core whites
+  WHITE: '#FFFFFF',
+  OFF_WHITE: '#FAFAFA',
 } as const;
 
 // Form Validation Messages

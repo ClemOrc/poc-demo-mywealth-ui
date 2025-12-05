@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -13,9 +13,15 @@ import {
   Box,
   CircularProgress,
   Button,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
 import { Agreement, AgreementStatus } from '../../../types';
 import { format } from 'date-fns';
+import ConfirmationModal from '../../../components/ConfirmationModal';
+import { COLORS } from '../../../constants';
 
 interface AgreementTableProps {
   agreements: Agreement[];
@@ -26,6 +32,14 @@ interface AgreementTableProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onRowClick: (agreementId: string) => void;
+  onStatusChange?: (agreementId: string, newStatus: AgreementStatus) => void;
+}
+
+interface ConfirmationState {
+  open: boolean;
+  agreementId: string | null;
+  action: 'accept' | 'reject' | null;
+  agreementNumber: string;
 }
 
 const AgreementTable: React.FC<AgreementTableProps> = ({
@@ -37,7 +51,15 @@ const AgreementTable: React.FC<AgreementTableProps> = ({
   onPageChange,
   onPageSizeChange,
   onRowClick,
+  onStatusChange,
 }) => {
+  const [confirmationState, setConfirmationState] = useState<ConfirmationState>({
+    open: false,
+    agreementId: null,
+    action: null,
+    agreementNumber: '',
+  });
+
   const getStatusColor = (status: AgreementStatus): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     const statusColors: Record<AgreementStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
       [AgreementStatus.ACTIVE]: 'success',
@@ -74,6 +96,60 @@ const AgreementTable: React.FC<AgreementTableProps> = ({
     onPageChange(0);
   };
 
+  const handleActionClick = (
+    event: React.MouseEvent,
+    agreementId: string,
+    action: 'accept' | 'reject',
+    agreementNumber: string
+  ) => {
+    event.stopPropagation(); // Prevent row click
+    setConfirmationState({
+      open: true,
+      agreementId,
+      action,
+      agreementNumber,
+    });
+  };
+
+  const handleConfirmAction = () => {
+    if (confirmationState.agreementId && confirmationState.action && onStatusChange) {
+      const newStatus = confirmationState.action === 'accept' 
+        ? AgreementStatus.ACTIVE 
+        : AgreementStatus.TERMINATED;
+      
+      onStatusChange(confirmationState.agreementId, newStatus);
+    }
+    
+    setConfirmationState({
+      open: false,
+      agreementId: null,
+      action: null,
+      agreementNumber: '',
+    });
+  };
+
+  const handleCancelAction = () => {
+    setConfirmationState({
+      open: false,
+      agreementId: null,
+      action: null,
+      agreementNumber: '',
+    });
+  };
+
+  const getConfirmationModalProps = () => {
+    const isAccept = confirmationState.action === 'accept';
+    return {
+      title: isAccept ? 'Accepter l\'accord' : 'Refuser l\'accord',
+      message: isAccept
+        ? `Êtes-vous sûr de vouloir accepter l'accord ${confirmationState.agreementNumber} ? Le statut sera changé en "Valide".`
+        : `Êtes-vous sûr de vouloir refuser l'accord ${confirmationState.agreementNumber} ? Le statut sera changé en "Deleted".`,
+      confirmText: isAccept ? 'Accepter' : 'Refuser',
+      cancelText: 'Annuler',
+      confirmColor: (isAccept ? 'success' : 'error') as 'success' | 'error',
+    };
+  };
+
   if (loading && agreements.length === 0) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -91,6 +167,8 @@ const AgreementTable: React.FC<AgreementTableProps> = ({
       </Box>
     );
   }
+
+  const modalProps = getConfirmationModalProps();
 
   return (
     <Box>
@@ -144,10 +222,43 @@ const AgreementTable: React.FC<AgreementTableProps> = ({
                 <TableCell sx={{ fontSize: '0.875rem' }}>{agreement.createdBy || 'N/A'}</TableCell>
                 <TableCell sx={{ fontSize: '0.875rem' }}>{agreement.modifiedBy || 'N/A'}</TableCell>
                 <TableCell sx={{ fontSize: '0.875rem' }}>{agreement.clientName || 'N/A'}</TableCell>
-                <TableCell>
-                  <Button size="small" sx={{ textTransform: 'none', minWidth: 'auto', p: 0.5 }}>
-                    •••
-                  </Button>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  {agreement.status === AgreementStatus.PENDING_APPROVAL ? (
+                    <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                      <Tooltip title="Accepter">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleActionClick(e, agreement.id, 'accept', agreement.agreementNumber)}
+                          sx={{
+                            color: '#2e7d32',
+                            '&:hover': {
+                              backgroundColor: 'rgba(46, 125, 50, 0.08)',
+                            },
+                          }}
+                        >
+                          <CheckCircleIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Refuser">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleActionClick(e, agreement.id, 'reject', agreement.agreementNumber)}
+                          sx={{
+                            color: '#c62828',
+                            '&:hover': {
+                              backgroundColor: 'rgba(198, 40, 40, 0.08)',
+                            },
+                          }}
+                        >
+                          <CancelIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                      --
+                    </Typography>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -162,6 +273,18 @@ const AgreementTable: React.FC<AgreementTableProps> = ({
         page={page}
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
+      />
+      
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        open={confirmationState.open}
+        title={modalProps.title}
+        message={modalProps.message}
+        confirmText={modalProps.confirmText}
+        cancelText={modalProps.cancelText}
+        confirmColor={modalProps.confirmColor}
+        onConfirm={handleConfirmAction}
+        onCancel={handleCancelAction}
       />
     </Box>
   );

@@ -20,6 +20,15 @@ export const UPDATE_AGREEMENT = gql`
   }
 `;
 
+export const UPDATE_AGREEMENT_STATUS = gql`
+  ${AGREEMENT_FRAGMENT}
+  mutation UpdateAgreementStatus($id: ID!, $status: String!) {
+    updateAgreementStatus(id: $id, status: $status) {
+      ...AgreementFields
+    }
+  }
+`;
+
 export const DELETE_AGREEMENT = gql`
   mutation DeleteAgreement($id: ID!) {
     deleteAgreement(id: $id) {

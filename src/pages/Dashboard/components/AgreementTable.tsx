@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useMutation } from '@apollo/client';
 import {
   Table,
   TableBody,
@@ -16,6 +17,9 @@ import {
 } from '@mui/material';
 import { Agreement, AgreementStatus } from '../../../types';
 import { format } from 'date-fns';
+import { UPDATE_AGREEMENT_STATUS } from '../../../graphql/mutations';
+import AgreementActionMenu from '../../../components/AgreementActionMenu';
+import ConfirmationDialog from '../../../components/ConfirmationDialog';
 
 interface AgreementTableProps {
   agreements: Agreement[];
@@ -26,6 +30,8 @@ interface AgreementTableProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onRowClick: (agreementId: string) => void;
+  onAgreementStatusUpdated: (agreementId: string, action: 'approve' | 'decline') => void;
+  onAgreementStatusError: (error: string) => void;
 }
 
 const AgreementTable: React.FC<AgreementTableProps> = ({
@@ -37,7 +43,15 @@ const AgreementTable: React.FC<AgreementTableProps> = ({
   onPageChange,
   onPageSizeChange,
   onRowClick,
+  onAgreementStatusUpdated,
+  onAgreementStatusError,
 }) => {
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [selectedAgreement, setSelectedAgreement] = useState<Agreement | null>(null);
+  const [actionType, setActionType] = useState<'approve' | 'decline' | null>(null);
+
+  const [updateAgreementStatus, { loading: updateLoading }] = useMutation(UPDATE_AGREEMENT_STATUS);
+
   const getStatusColor = (status: AgreementStatus): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     const statusColors: Record<AgreementStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
       [AgreementStatus.ACTIVE]: 'success',
@@ -72,6 +86,64 @@ const AgreementTable: React.FC<AgreementTableProps> = ({
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     onPageSizeChange(parseInt(event.target.value, 10));
     onPageChange(0);
+  };
+
+  const handleApprove = (agreement: Agreement) => {
+    setSelectedAgreement(agreement);
+    setActionType('approve');
+    setConfirmDialogOpen(true);
+  };
+
+  const handleDecline = (agreement: Agreement) => {
+    setSelectedAgreement(agreement);
+    setActionType('decline');
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmAction = async () => {
+    if (!selectedAgreement || !actionType) return;
+
+    const newStatus = actionType === 'approve' ? AgreementStatus.ACTIVE : AgreementStatus.EXPIRED;
+
+    try {
+      await updateAgreementStatus({
+        variables: {
+          id: selectedAgreement.id,
+          status: newStatus,
+        },
+      });
+
+      // Close dialog
+      setConfirmDialogOpen(false);
+
+      // Notify parent component of successful update
+      onAgreementStatusUpdated(selectedAgreement.id, actionType);
+
+      // Reset state
+      setSelectedAgreement(null);
+      setActionType(null);
+    } catch (error: any) {
+      console.error('Error updating agreement status:', error);
+      setConfirmDialogOpen(false);
+      onAgreementStatusError(error.message || 'Failed to update agreement status');
+      setSelectedAgreement(null);
+      setActionType(null);
+    }
+  };
+
+  const handleCancelAction = () => {
+    setConfirmDialogOpen(false);
+    setSelectedAgreement(null);
+    setActionType(null);
+  };
+
+  const getConfirmationMessage = () => {
+    if (!selectedAgreement || !actionType) return '';
+    
+    const actionText = actionType === 'approve' ? 'approve' : 'decline';
+    const statusText = actionType === 'approve' ? 'ACTIVE' : 'EXPIRED';
+    
+    return `Are you sure you want to ${actionText} agreement ${selectedAgreement.agreementNumber}? The status will be updated to ${statusText}.`;
   };
 
   if (loading && agreements.length === 0) {
@@ -144,10 +216,18 @@ const AgreementTable: React.FC<AgreementTableProps> = ({
                 <TableCell sx={{ fontSize: '0.875rem' }}>{agreement.createdBy || 'N/A'}</TableCell>
                 <TableCell sx={{ fontSize: '0.875rem' }}>{agreement.modifiedBy || 'N/A'}</TableCell>
                 <TableCell sx={{ fontSize: '0.875rem' }}>{agreement.clientName || 'N/A'}</TableCell>
-                <TableCell>
-                  <Button size="small" sx={{ textTransform: 'none', minWidth: 'auto', p: 0.5 }}>
-                    •••
-                  </Button>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  {agreement.status === AgreementStatus.PENDING_APPROVAL ? (
+                    <AgreementActionMenu
+                      agreement={agreement}
+                      onApprove={handleApprove}
+                      onDecline={handleDecline}
+                    />
+                  ) : (
+                    <Button size="small" sx={{ textTransform: 'none', minWidth: 'auto', p: 0.5, visibility: 'hidden' }}>
+                      •••
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -162,6 +242,18 @@ const AgreementTable: React.FC<AgreementTableProps> = ({
         page={page}
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
+      />
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        open={confirmDialogOpen}
+        title={actionType === 'approve' ? 'Approve Agreement' : 'Decline Agreement'}
+        message={getConfirmationMessage()}
+        confirmText={actionType === 'approve' ? 'Approve' : 'Decline'}
+        cancelText="Cancel"
+        onConfirm={handleConfirmAction}
+        onCancel={handleCancelAction}
+        loading={updateLoading}
       />
     </Box>
   );

@@ -99,16 +99,98 @@ const Dashboard: React.FC = () => {
     refetch();
   }, []);
 
-  // GraphQL Mutations
+  // GraphQL Mutations with Apollo Cache Updates
   const [approveAgreementMutation, { loading: approveLoading }] = useMutation(APPROVE_AGREEMENT, {
+    update(cache, { data }) {
+      if (!data?.approveAgreement) return;
+
+      const approvedAgreementId = data.approveAgreement.id;
+
+      // CRITICAL: Update GET_AGREEMENTS cache to remove the approved agreement
+      try {
+        const existingAgreements = cache.readQuery({
+          query: GET_AGREEMENTS,
+          variables: {
+            filters,
+            pagination: {
+              page: page + 1,
+              pageSize,
+              sortBy: 'createdAt',
+              sortOrder: 'desc',
+            },
+          },
+        }) as any;
+
+        if (existingAgreements?.agreements?.data) {
+          const filteredAgreements = existingAgreements.agreements.data.filter(
+            (agreement: any) => agreement.id !== approvedAgreementId
+          );
+
+          cache.writeQuery({
+            query: GET_AGREEMENTS,
+            variables: {
+              filters,
+              pagination: {
+                page: page + 1,
+                pageSize,
+                sortBy: 'createdAt',
+                sortOrder: 'desc',
+              },
+            },
+            data: {
+              agreements: {
+                ...existingAgreements.agreements,
+                data: filteredAgreements,
+                total: existingAgreements.agreements.total - 1,
+              },
+            },
+          });
+        }
+      } catch (e) {
+        console.error('Failed to update agreements cache:', e);
+      }
+
+      // CRITICAL: Update GET_DASHBOARD_STATS cache to decrement pending counter
+      try {
+        const existingStats = cache.readQuery({
+          query: GET_DASHBOARD_STATS,
+        }) as any;
+
+        if (existingStats?.dashboardStats) {
+          cache.writeQuery({
+            query: GET_DASHBOARD_STATS,
+            data: {
+              dashboardStats: {
+                ...existingStats.dashboardStats,
+                pendingApprovals: Math.max(0, existingStats.dashboardStats.pendingApprovals - 1),
+                pendingApprovalAgreements: Math.max(0, existingStats.dashboardStats.pendingApprovalAgreements - 1),
+                activeAgreements: existingStats.dashboardStats.activeAgreements + 1,
+              },
+            },
+          });
+        }
+      } catch (e) {
+        console.error('Failed to update dashboard stats cache:', e);
+      }
+    },
+    optimisticResponse: {
+      approveAgreement: {
+        __typename: 'Agreement',
+        id: selectedAgreement?.agreementId || '',
+        status: AgreementStatus.ACTIVE,
+        updatedAt: new Date().toISOString(),
+      },
+    },
     onCompleted: (data) => {
       setToast({
         open: true,
-        message: `Agreement ${selectedAgreement?.agreementId} approved successfully.`,
+        message: `Agreement ${selectedAgreement?.agreementId} has been approved successfully.`,
         severity: 'success',
       });
       setApproveDialogOpen(false);
       setSelectedAgreement(null);
+      
+      // Refetch to ensure consistency
       refetch();
       refetchStats();
     },
@@ -122,14 +204,96 @@ const Dashboard: React.FC = () => {
   });
 
   const [declineAgreementMutation, { loading: declineLoading }] = useMutation(DECLINE_AGREEMENT, {
+    update(cache, { data }) {
+      if (!data?.declineAgreement) return;
+
+      const declinedAgreementId = data.declineAgreement.id;
+
+      // CRITICAL: Update GET_AGREEMENTS cache to remove the declined agreement
+      try {
+        const existingAgreements = cache.readQuery({
+          query: GET_AGREEMENTS,
+          variables: {
+            filters,
+            pagination: {
+              page: page + 1,
+              pageSize,
+              sortBy: 'createdAt',
+              sortOrder: 'desc',
+            },
+          },
+        }) as any;
+
+        if (existingAgreements?.agreements?.data) {
+          const filteredAgreements = existingAgreements.agreements.data.filter(
+            (agreement: any) => agreement.id !== declinedAgreementId
+          );
+
+          cache.writeQuery({
+            query: GET_AGREEMENTS,
+            variables: {
+              filters,
+              pagination: {
+                page: page + 1,
+                pageSize,
+                sortBy: 'createdAt',
+                sortOrder: 'desc',
+              },
+            },
+            data: {
+              agreements: {
+                ...existingAgreements.agreements,
+                data: filteredAgreements,
+                total: existingAgreements.agreements.total - 1,
+              },
+            },
+          });
+        }
+      } catch (e) {
+        console.error('Failed to update agreements cache:', e);
+      }
+
+      // CRITICAL: Update GET_DASHBOARD_STATS cache to decrement pending counter
+      try {
+        const existingStats = cache.readQuery({
+          query: GET_DASHBOARD_STATS,
+        }) as any;
+
+        if (existingStats?.dashboardStats) {
+          cache.writeQuery({
+            query: GET_DASHBOARD_STATS,
+            data: {
+              dashboardStats: {
+                ...existingStats.dashboardStats,
+                pendingApprovals: Math.max(0, existingStats.dashboardStats.pendingApprovals - 1),
+                pendingApprovalAgreements: Math.max(0, existingStats.dashboardStats.pendingApprovalAgreements - 1),
+                expiredAgreements: existingStats.dashboardStats.expiredAgreements + 1,
+              },
+            },
+          });
+        }
+      } catch (e) {
+        console.error('Failed to update dashboard stats cache:', e);
+      }
+    },
+    optimisticResponse: ({ agreementId }) => ({
+      declineAgreement: {
+        __typename: 'Agreement',
+        id: agreementId,
+        status: AgreementStatus.EXPIRED,
+        updatedAt: new Date().toISOString(),
+      },
+    }),
     onCompleted: (data) => {
       setToast({
         open: true,
-        message: `Agreement ${selectedAgreement?.agreementId} declined successfully.`,
+        message: `Agreement ${selectedAgreement?.agreementId} has been declined successfully.`,
         severity: 'success',
       });
       setDeclineDialogOpen(false);
       setSelectedAgreement(null);
+      
+      // Refetch to ensure consistency
       refetch();
       refetchStats();
     },
@@ -340,7 +504,21 @@ const Dashboard: React.FC = () => {
         onClose={handleCloseToast}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <Alert onClose={handleCloseToast} severity={toast.severity} sx={{ width: '100%' }}>
+        <Alert 
+          onClose={handleCloseToast} 
+          severity={toast.severity} 
+          sx={{ 
+            width: '100%',
+            ...(toast.severity === 'success' && {
+              backgroundColor: '#4caf50',
+              color: '#fff',
+            }),
+            ...(toast.severity === 'error' && {
+              backgroundColor: '#d32f2f',
+              color: '#fff',
+            }),
+          }}
+        >
           {toast.message}
         </Alert>
       </Snackbar>

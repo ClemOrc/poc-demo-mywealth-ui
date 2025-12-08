@@ -1,8 +1,81 @@
+# ========================================
+# Docker Ignore File
+# Optimizes Docker build context
+# ========================================
+
+# Node modules (will be installed in container)
 node_modules
+npm-debug.log
+yarn-error.log
+
+# Build artifacts
 dist
+build
+.cache
+
+# Git
 .git
-.env
-*.log
-.vscode
+.gitignore
+.gitattributes
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# IDE
 .idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+coverage
+.nyc_output
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+__mocks__
+
+# Documentation
 *.md
+!README.md
+docs
+
+# Logs
+*.log
+logs
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Temporary files
+tmp
+temp
+*.tmp
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Elastic Beanstalk Files (not needed in Docker build)
+.elasticbeanstalk
+.ebextensions
+.platform
+Dockerrun.aws.json
+frontend.log
+
+# Infra files (not needed in container)
+infra
+terraform
+k8s
+
+# Misc
+*.bak
+*.orig

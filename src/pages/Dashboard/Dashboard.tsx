@@ -14,7 +14,8 @@ import { useAppNavigation } from '../../hooks/useAppNavigation';
 import { COLORS, DEFAULT_PAGE_SIZE } from '../../constants';
 import AgreementTable from './components/AgreementTable';
 import AgreementFilters from './components/AgreementFilters';
-import { AgreementStatus } from '../../types';
+import { Agreement, AgreementStatus } from '../../types';
+import Toast from '../../components/Toast';
 
 const Dashboard: React.FC = () => {
   const nav = useAppNavigation();
@@ -22,13 +23,22 @@ const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  
+  // Toast state
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastSeverity, setToastSeverity] = useState<'success' | 'error'>('success');
+
+  // Local state for agreements (for dynamic updates)
+  const [localAgreements, setLocalAgreements] = useState<Agreement[]>([]);
+  const [localTotal, setLocalTotal] = useState(0);
 
   // Initialize filters based on the default tab (Pending)
   React.useEffect(() => {
     setFilters({ ...filters, status: [AgreementStatus.PENDING_APPROVAL] });
   }, []); // Only run once on mount
 
-  const { data: statsData, loading: statsLoading } = useQuery(GET_DASHBOARD_STATS, {
+  const { data: statsData, loading: statsLoading, refetch: refetchStats } = useQuery(GET_DASHBOARD_STATS, {
     fetchPolicy: 'network-only',
   });
 
@@ -71,6 +81,8 @@ const Dashboard: React.FC = () => {
       if (mockData) {
         console.log('✅ Got raw mock data from store:', mockData);
         setRawAgreementsData(mockData);
+        setLocalAgreements(mockData.data || []);
+        setLocalTotal(mockData.total || 0);
       }
     });
   }, [agreementsLoading, agreementsData]); // Re-fetch when query completes or data changes
@@ -104,9 +116,41 @@ const Dashboard: React.FC = () => {
     nav.goToAgreementDetails(agreementId);
   };
 
-  // Use raw mock data if available, otherwise fall back to Apollo data
-  const agreements = rawAgreementsData?.data || agreementsData?.agreements?.data || [];
-  const total = rawAgreementsData?.total || agreementsData?.agreements?.total || 0;
+  // Handler for successful agreement status update
+  const handleAgreementStatusUpdated = (agreementId: string, action: 'approve' | 'decline') => {
+    // Remove agreement from local list
+    setLocalAgreements(prev => prev.filter(agreement => agreement.id !== agreementId));
+    setLocalTotal(prev => Math.max(0, prev - 1));
+
+    // Update stats (decrement pending count)
+    if (rawStatsData) {
+      setRawStatsData({
+        ...rawStatsData,
+        pendingApprovalAgreements: Math.max(0, (rawStatsData.pendingApprovalAgreements || 0) - 1),
+        totalAgreements: rawStatsData.totalAgreements || 0,
+      });
+    }
+
+    // Show success toast
+    const actionText = action === 'approve' ? 'approved' : 'declined';
+    setToastMessage(`Agreement ${agreementId} has been ${actionText} successfully.`);
+    setToastSeverity('success');
+    setToastOpen(true);
+
+    // Refetch stats to update counters
+    refetchStats();
+  };
+
+  // Handler for error during status update
+  const handleAgreementStatusError = (error: string) => {
+    setToastMessage(error);
+    setToastSeverity('error');
+    setToastOpen(true);
+  };
+
+  // Use local state for agreements (for dynamic updates without page reload)
+  const agreements = localAgreements.length > 0 ? localAgreements : (rawAgreementsData?.data || agreementsData?.agreements?.data || []);
+  const total = localTotal > 0 ? localTotal : (rawAgreementsData?.total || agreementsData?.agreements?.total || 0);
 
   interface TabCounts {
     all: number;
@@ -200,9 +244,19 @@ const Dashboard: React.FC = () => {
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
             onRowClick={handleRowClick}
+            onAgreementStatusUpdated={handleAgreementStatusUpdated}
+            onAgreementStatusError={handleAgreementStatusError}
           />
         </Box>
       </Card>
+
+      {/* Toast Notification */}
+      <Toast
+        open={toastOpen}
+        message={toastMessage}
+        severity={toastSeverity}
+        onClose={() => setToastOpen(false)}
+      />
     </Box>
   );
 };

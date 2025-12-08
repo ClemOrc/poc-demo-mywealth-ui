@@ -408,6 +408,33 @@ export const mockResolvers = {
       
       return updatedAgreement;
     },
+    updateAgreementStatus: (_: any, { id, status }: { id: string; status: string }) => {
+      maybeThrowError('updateAgreementStatus');
+
+      const agreementIndex = mockAgreements.findIndex((a) => a.id === id);
+      if (agreementIndex === -1) {
+        throw new GraphQLError(`Agreement with id ${id} not found`, {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      const updatedAgreement = {
+        ...mockAgreements[agreementIndex],
+        status: status as AgreementStatus,
+        updatedAt: new Date().toISOString(),
+        modifiedBy: 'manager@mywealth.com',
+      };
+
+      mockAgreements[agreementIndex] = updatedAgreement;
+      
+      // Clear cache so queries refetch fresh data
+      clearAgreementsCache();
+      
+      console.log(`✅ Agreement ${id} status updated to ${status}`);
+      
+      return updatedAgreement;
+    },
+
 
     deleteAgreement: (_: any, { id }: { id: string }) => {
       maybeThrowError('deleteAgreement');

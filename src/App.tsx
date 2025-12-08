@@ -7,6 +7,7 @@ import { AppProvider } from '@contexts/AppContext';
 import AppRoutes from '@/routes';
 import Layout from '@components/Layout/Layout';
 import ErrorBoundary from '@components/ErrorBoundary';
+import { ToastProvider } from '@components/Toast';
 
 export interface AppConfig {
   basePath?: string;
@@ -28,15 +29,17 @@ function App({
       <ApolloProvider client={apolloClient}>
         <ThemeProvider theme={theme}>
           <CssBaseline />
-          <AppProvider>
-            {standalone ? (
-              <Layout>
+          <ToastProvider>
+            <AppProvider>
+              {standalone ? (
+                <Layout>
+                  <AppRoutes basePath={basePath} />
+                </Layout>
+              ) : (
                 <AppRoutes basePath={basePath} />
-              </Layout>
-            ) : (
-              <AppRoutes basePath={basePath} />
-            )}
-          </AppProvider>
+              )}
+            </AppProvider>
+          </ToastProvider>
         </ThemeProvider>
       </ApolloProvider>
     </ErrorBoundary>

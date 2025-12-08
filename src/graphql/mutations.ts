@@ -29,6 +29,7 @@ export const DELETE_AGREEMENT = gql`
   }
 `;
 
+// New mutations for status updates
 export const APPROVE_AGREEMENT = gql`
   ${AGREEMENT_FRAGMENT}
   mutation ApproveAgreement($id: ID!) {
@@ -38,10 +39,10 @@ export const APPROVE_AGREEMENT = gql`
   }
 `;
 
-export const DECLINE_AGREEMENT = gql`
+export const REJECT_AGREEMENT = gql`
   ${AGREEMENT_FRAGMENT}
-  mutation DeclineAgreement($id: ID!, $reason: String!) {
-    declineAgreement(id: $id, reason: $reason) {
+  mutation RejectAgreement($id: ID!, $reason: String) {
+    rejectAgreement(id: $id, reason: $reason) {
       ...AgreementFields
     }
   }

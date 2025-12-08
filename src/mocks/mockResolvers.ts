@@ -478,6 +478,81 @@ export const mockResolvers = {
 
 
 
+    // New: Approve agreement mutation
+    approveAgreement: (_: any, { id }: { id: string }) => {
+      maybeThrowError('approveAgreement');
+
+      const agreementIndex = mockAgreements.findIndex((a) => a.id === id);
+      if (agreementIndex === -1) {
+        throw new GraphQLError(`Agreement with id ${id} not found`, {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      const agreement = mockAgreements[agreementIndex];
+      
+      // Validate that agreement is in PENDING_APPROVAL status
+      if (agreement.status !== AgreementStatus.PENDING_APPROVAL) {
+        throw new GraphQLError(
+          `Agreement must be in PENDING_APPROVAL status to be approved. Current status: ${agreement.status}`,
+          { extensions: { code: 'INVALID_STATUS' } }
+        );
+      }
+
+      const updatedAgreement = {
+        ...agreement,
+        status: AgreementStatus.ACTIVE,
+        updatedAt: new Date().toISOString(),
+        modifiedBy: 'manager@mywealth.com',
+      };
+
+      mockAgreements[agreementIndex] = updatedAgreement;
+      
+      // Clear cache so queries refetch fresh data
+      clearAgreementsCache();
+      
+      console.log(`✅ Agreement ${id} approved - status changed to ACTIVE`);
+      return updatedAgreement;
+    },
+
+    // New: Reject agreement mutation
+    rejectAgreement: (_: any, { id, reason }: { id: string; reason?: string }) => {
+      maybeThrowError('rejectAgreement');
+
+      const agreementIndex = mockAgreements.findIndex((a) => a.id === id);
+      if (agreementIndex === -1) {
+        throw new GraphQLError(`Agreement with id ${id} not found`, {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      const agreement = mockAgreements[agreementIndex];
+      
+      // Validate that agreement is in PENDING_APPROVAL status
+      if (agreement.status !== AgreementStatus.PENDING_APPROVAL) {
+        throw new GraphQLError(
+          `Agreement must be in PENDING_APPROVAL status to be rejected. Current status: ${agreement.status}`,
+          { extensions: { code: 'INVALID_STATUS' } }
+        );
+      }
+
+      const updatedAgreement = {
+        ...agreement,
+        status: AgreementStatus.EXPIRED,
+        updatedAt: new Date().toISOString(),
+        modifiedBy: 'manager@mywealth.com',
+        comments: reason || agreement.comments,
+      };
+
+      mockAgreements[agreementIndex] = updatedAgreement;
+      
+      // Clear cache so queries refetch fresh data
+      clearAgreementsCache();
+      
+      console.log(`❌ Agreement ${id} rejected - status changed to EXPIRED`);
+      return updatedAgreement;
+    },
+
     createModificationRequest: (_: any, { input }: any) => {
       maybeThrowError('createModificationRequest');
 

@@ -425,6 +425,58 @@ export const mockResolvers = {
         message: 'Agreement deleted successfully',
       };
     },
+    approveAgreement: (_: any, { id }: { id: string }) => {
+      maybeThrowError('approveAgreement');
+
+      const agreementIndex = mockAgreements.findIndex((a) => a.id === id);
+      if (agreementIndex === -1) {
+        throw new GraphQLError(`Agreement with id ${id} not found`, {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      const updatedAgreement = {
+        ...mockAgreements[agreementIndex],
+        status: AgreementStatus.ACTIVE,
+        updatedAt: new Date().toISOString(),
+        modifiedBy: 'manager@mywealth.com',
+      };
+
+      mockAgreements[agreementIndex] = updatedAgreement;
+      
+      // Clear cache so queries refetch fresh data
+      clearAgreementsCache();
+      
+      return updatedAgreement;
+    },
+
+    declineAgreement: (_: any, { id, reason }: { id: string; reason: string }) => {
+      maybeThrowError('declineAgreement');
+
+      const agreementIndex = mockAgreements.findIndex((a) => a.id === id);
+      if (agreementIndex === -1) {
+        throw new GraphQLError(`Agreement with id ${id} not found`, {
+          extensions: { code: 'NOT_FOUND' },
+        });
+      }
+
+      const updatedAgreement = {
+        ...mockAgreements[agreementIndex],
+        status: AgreementStatus.EXPIRED,
+        comments: (mockAgreements[agreementIndex].comments || '') + '\n\nDecline Reason: ' + reason,
+        updatedAt: new Date().toISOString(),
+        modifiedBy: 'manager@mywealth.com',
+      };
+
+      mockAgreements[agreementIndex] = updatedAgreement;
+      
+      // Clear cache so queries refetch fresh data
+      clearAgreementsCache();
+      
+      return updatedAgreement;
+    },
+
+
 
     createModificationRequest: (_: any, { input }: any) => {
       maybeThrowError('createModificationRequest');

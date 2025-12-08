@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
 import {
   Box,
   Button,
@@ -9,11 +9,13 @@ import {
   Tab,
 } from '@mui/material';
 import { GET_AGREEMENTS, GET_DASHBOARD_STATS } from '@graphql/queries';
+import { APPROVE_AGREEMENT, DECLINE_AGREEMENT } from '@graphql/mutations';
 import { useAppContext } from '@contexts/AppContext';
 import { useAppNavigation } from '../../hooks/useAppNavigation';
 import { COLORS, DEFAULT_PAGE_SIZE } from '../../constants';
 import AgreementTable from './components/AgreementTable';
 import AgreementFilters from './components/AgreementFilters';
+import Toast from '../../components/Toast';
 import { AgreementStatus } from '../../types';
 
 const Dashboard: React.FC = () => {
@@ -22,13 +24,18 @@ const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  
+  // Toast state
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastSeverity, setToastSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success');
 
   // Initialize filters based on the default tab (Pending)
   React.useEffect(() => {
     setFilters({ ...filters, status: [AgreementStatus.PENDING_APPROVAL] });
   }, []); // Only run once on mount
 
-  const { data: statsData, loading: statsLoading } = useQuery(GET_DASHBOARD_STATS, {
+  const { data: statsData, loading: statsLoading, refetch: refetchStats } = useQuery(GET_DASHBOARD_STATS, {
     fetchPolicy: 'network-only',
   });
 
@@ -80,6 +87,66 @@ const Dashboard: React.FC = () => {
     refetch();
   }, []);
 
+  // Approve mutation
+  const [approveAgreementMutation] = useMutation(APPROVE_AGREEMENT, {
+    onCompleted: (data) => {
+      const agreementId = data.approveAgreement.agreementNumber;
+      setToastMessage(`Agreement ${agreementId} has been approved successfully.`);
+      setToastSeverity('success');
+      setToastOpen(true);
+      
+      // Refetch data to update UI dynamically
+      refetch();
+      refetchStats();
+    },
+    onError: (error) => {
+      console.error('Error approving agreement:', error);
+      setToastMessage(`Failed to approve agreement: ${error.message}`);
+      setToastSeverity('error');
+      setToastOpen(true);
+    },
+  });
+
+  // Decline mutation
+  const [declineAgreementMutation] = useMutation(DECLINE_AGREEMENT, {
+    onCompleted: (data) => {
+      const agreementId = data.declineAgreement.agreementNumber;
+      setToastMessage(`Agreement ${agreementId} has been declined successfully.`);
+      setToastSeverity('success');
+      setToastOpen(true);
+      
+      // Refetch data to update UI dynamically
+      refetch();
+      refetchStats();
+    },
+    onError: (error) => {
+      console.error('Error declining agreement:', error);
+      setToastMessage(`Failed to decline agreement: ${error.message}`);
+      setToastSeverity('error');
+      setToastOpen(true);
+    },
+  });
+
+  const handleApprove = async (agreementId: string) => {
+    try {
+      await approveAgreementMutation({
+        variables: { id: agreementId },
+      });
+    } catch (error) {
+      console.error('Error in handleApprove:', error);
+    }
+  };
+
+  const handleDecline = async (agreementId: string, reason: string) => {
+    try {
+      await declineAgreementMutation({
+        variables: { id: agreementId, reason },
+      });
+    } catch (error) {
+      console.error('Error in handleDecline:', error);
+    }
+  };
+
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
     setPage(0);
@@ -102,6 +169,14 @@ const Dashboard: React.FC = () => {
 
   const handleRowClick = (agreementId: string) => {
     nav.goToAgreementDetails(agreementId);
+  };
+
+  const handleEdit = (agreementId: string) => {
+    nav.goToModifyAgreement(agreementId);
+  };
+
+  const handleCloseToast = () => {
+    setToastOpen(false);
   };
 
   // Use raw mock data if available, otherwise fall back to Apollo data
@@ -135,6 +210,14 @@ const Dashboard: React.FC = () => {
 
   return (
     <Box sx={{ bgcolor: COLORS.BACKGROUND_GRAY, minHeight: '100vh', p: 3 }}>
+      {/* Toast Notification */}
+      <Toast
+        open={toastOpen}
+        message={toastMessage}
+        severity={toastSeverity}
+        onClose={handleCloseToast}
+      />
+
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
@@ -200,6 +283,9 @@ const Dashboard: React.FC = () => {
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
             onRowClick={handleRowClick}
+            onApprove={handleApprove}
+            onDecline={handleDecline}
+            onEdit={handleEdit}
           />
         </Box>
       </Card>

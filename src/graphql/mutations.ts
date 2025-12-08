@@ -29,6 +29,24 @@ export const DELETE_AGREEMENT = gql`
   }
 `;
 
+export const APPROVE_AGREEMENT = gql`
+  ${AGREEMENT_FRAGMENT}
+  mutation ApproveAgreement($id: ID!) {
+    approveAgreement(id: $id) {
+      ...AgreementFields
+    }
+  }
+`;
+
+export const DECLINE_AGREEMENT = gql`
+  ${AGREEMENT_FRAGMENT}
+  mutation DeclineAgreement($id: ID!, $reason: String!) {
+    declineAgreement(id: $id, reason: $reason) {
+      ...AgreementFields
+    }
+  }
+`;
+
 export const CREATE_MODIFICATION_REQUEST = gql`
   ${MODIFICATION_REQUEST_FRAGMENT}
   mutation CreateModificationRequest($input: CreateModificationRequestInput!) {
